@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Focus",
+    "slug": "focus",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./Logo.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./Logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#08080C"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.focus.discipline",
+      "buildNumber": "1",
+      "icon": "./Logo.png",
+      "infoPlist": {
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true,
+        "UIBackgroundModes": ["remote-notification"],
+        "UIUserInterfaceStyle": "Dark",
+        "CFBundleDisplayName": "Focus"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#08080C",
+          "image": "./Logo.png",
+          "imageWidth": 180
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "focus-app-ios"
+      }
+    }
+  }
+}

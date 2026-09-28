@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Focus - Disciplina y Enfoque",
+  "short_name": "Focus",
+  "description": "App de disciplina personal, juramentos diarios, enfoque profundo y respeto propio.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08080C",
+  "theme_color": "#08080C",
+  "icons": [
+    {
+      "src": "/Logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

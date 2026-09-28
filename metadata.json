@@ -1,0 +1,8 @@
+{
+  "name": "Focus - Disciplina y Enfoque",
+  "description": "App de disciplina personal, juramentos diarios, temporizador de enfoque profundo, check-in de respeto y diario de victorias con sistema de niveles y logros.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

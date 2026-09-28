@@ -1,0 +1,93 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      upload_release:
+        description: 'Publish as GitHub Release?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-ipa:
+    name: Build Focus .ipa for iPhone
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 🍎 Select Xcode Version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: 📦 Install dependencies
+        run: |
+          npm install --legacy-peer-deps
+
+      - name: 🏗️ Expo Prebuild (Generate iOS Native Project)
+        run: |
+          npx expo prebuild --platform ios --clean --no-install
+
+      - name: 🍫 Install CocoaPods
+        working-directory: ios
+        run: |
+          pod install --repo-update
+
+      - name: 🛠️ Build Xcode Archive (Release)
+        working-directory: ios
+        run: |
+          xcodebuild archive \
+            -workspace Focus.xcworkspace \
+            -scheme Focus \
+            -configuration Release \
+            -archivePath ../build/Focus.xcarchive \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: 📦 Package .app into .ipa (Payload structure)
+        run: |
+          mkdir -p build/Payload
+          cp -r "build/Focus.xcarchive/Products/Applications/Focus.app" build/Payload/
+          cd build
+          zip -r -y Focus.ipa Payload
+          cd ..
+          ls -lh build/Focus.ipa
+
+      - name: 🚀 Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Focus-iOS-IPA
+          path: build/Focus.ipa
+          retention-days: 14
+
+      - name: 🏷️ Create Release (Optional)
+        if: ${{ inputs.upload_release == true }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/Focus.ipa
+          tag_name: v1.0.${{ github.run_number }}
+          name: Focus iOS v1.0.${{ github.run_number }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Focus iOS App (.ipa)
+            - Compilada automáticamente desde GitHub Actions.
+            - Compatible con iPhone (instalable vía AltStore, Sideloadly, TrollStore o Scarlet).
+            - Incluye soporte para Dynamic Island y notificaciones.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
