@@ -16,6 +16,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.focus.discipline",
       "buildNumber": "1",
+      "appleTeamId": "XXXXXXXXXX",
       "icon": "./Logo.png",
       "entitlements": {
         "com.apple.security.application-groups": [
@@ -47,7 +48,6 @@
         {
           "icon": "./Logo.png",
           "color": "#FF5A1F",
-          "sounds": ["default"],
           "mode": "production"
         }
       ],
