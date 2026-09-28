@@ -72,6 +72,9 @@ jobs:
           rm -rf ../Payload ../Focus.ipa
           mkdir -p ../Payload
           cp -R "$APP_PATH" ../Payload/
+          APP_NAME=$(basename "$APP_PATH")
+          mkdir -p "../Payload/$APP_NAME/PlugIns"
+          find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.appex' -exec cp -R {} "../Payload/$APP_NAME/PlugIns/" \;
           cd ..
           zip -r Focus.ipa Payload
 

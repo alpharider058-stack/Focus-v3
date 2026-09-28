@@ -56,9 +56,9 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
     saveNotificationSettings(updated);
   };
 
-  const handleTestNow = () => {
+  const handleTestNow = async () => {
     sound.playClick();
-    const sent = sendTestMotivationNotification();
+    const sent = await sendTestMotivationNotification();
     setTestSuccess(sent);
     setTimeout(() => setTestSuccess(null), 4000);
   };

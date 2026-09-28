@@ -1,4 +1,21 @@
 import { sound } from "./sound";
+import * as Notifications from "expo-notifications";
+
+// Set default notification presentation handler for foreground
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+    }),
+  });
+} catch {
+  // Not in native environment or unsupported
+}
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -147,54 +164,113 @@ export function loadNotificationSettings(): NotificationSettings {
 export function saveNotificationSettings(settings: NotificationSettings): void {
   try {
     localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(settings));
+    void syncScheduledNotifications(settings);
   } catch {
     // ignore
   }
 }
 
 export function isNotificationSupported(): boolean {
-  return typeof window !== "undefined" && "Notification" in window;
+  if (typeof window !== "undefined" && "Notification" in window) return true;
+  return Boolean(Notifications?.requestPermissionsAsync);
 }
 
 export function getNotificationPermission(): NotificationPermission {
-  if (!isNotificationSupported()) return "denied";
-  return Notification.permission;
+  if (typeof window !== "undefined" && "Notification" in window) {
+    return Notification.permission;
+  }
+  return "default";
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (!isNotificationSupported()) return "denied";
+  let granted = false;
+
+  // 1. Try Native iOS Notifications (expo-notifications)
   try {
-    const result = await Notification.requestPermission();
-    return result;
+    if (Notifications?.requestPermissionsAsync) {
+      const response = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowDisplayInCarPlay: false,
+          allowCriticalAlerts: false,
+          provideAppNotificationSettings: true,
+        },
+      });
+      if (response.status === "granted") {
+        granted = true;
+      }
+    }
   } catch {
-    return "denied";
+    // ignore
   }
+
+  // 2. Try Web Notifications API
+  if (typeof window !== "undefined" && "Notification" in window) {
+    try {
+      const result = await Notification.requestPermission();
+      if (result === "granted") granted = true;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (granted) {
+    const settings = loadNotificationSettings();
+    await syncScheduledNotifications(settings);
+    return "granted";
+  }
+
+  return "denied";
 }
 
-export function sendBrowserNotification(title: string, body: string, icon = "/Logo.png"): boolean {
-  if (!isNotificationSupported()) return false;
-  if (Notification.permission !== "granted") return false;
+export async function sendBrowserNotification(title: string, body: string, icon = "/Logo.png"): Promise<boolean> {
+  let sent = false;
 
+  // 1. Native iOS Notification via expo-notifications
   try {
-    const notification = new Notification(title, {
-      body,
-      icon,
-      badge: icon,
-      tag: "focus-motivation",
-      silent: false,
-    });
-
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-    };
-
-    sound.playLevelUp();
-    return true;
-  } catch (err) {
-    console.error("Error sending notification:", err);
-    return false;
+    if (Notifications?.scheduleNotificationAsync) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          sound: "default",
+        },
+        trigger: null, // immediate
+      });
+      sent = true;
+    }
+  } catch {
+    // fallback to web
   }
+
+  // 2. Web Notifications fallback
+  if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+    try {
+      const notification = new Notification(title, {
+        body,
+        icon,
+        badge: icon,
+        tag: "focus-motivation",
+        silent: false,
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+      sent = true;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (sent) {
+    sound.playLevelUp();
+  }
+
+  return sent;
 }
 
 export function getRandomQuote(category?: Quote["category"]): Quote {
@@ -205,19 +281,64 @@ export function getRandomQuote(category?: Quote["category"]): Quote {
   return filtered[index] || MOTIVATIONAL_QUOTES[0];
 }
 
-export function sendTestMotivationNotification(): boolean {
+export async function sendTestMotivationNotification(): Promise<boolean> {
   const quote = getRandomQuote();
-  return sendBrowserNotification(
-    "🔥 FOCUS · Frase del Día",
+  return await sendBrowserNotification(
+    "🔥 FOCUS · Frase de Guerra",
     `"${quote.phrase}" — ${quote.author}`
   );
 }
 
-// Check scheduled times and fire if it's the minute
+// Sync native repeating iOS notifications for daily quotes
+export async function syncScheduledNotifications(settings: NotificationSettings): Promise<void> {
+  if (!Notifications?.cancelAllScheduledNotificationsAsync) return;
+
+  try {
+    // Cancel existing scheduled notifications
+    await Notifications.cancelAllScheduledNotificationsAsync();
+
+    if (!settings.enabled) return;
+
+    const slots: { key: keyof NotificationSettings; timeKey: keyof NotificationSettings; cat: Quote["category"]; title: string }[] = [
+      { key: "morning", timeKey: "morningTime", cat: "morning", title: "☀️ Despierta con Honor" },
+      { key: "midday", timeKey: "middayTime", cat: "midday", title: "⚔️ Impulso de Mediodía" },
+      { key: "afternoon", timeKey: "afternoonTime", cat: "afternoon", title: "🛡️ Tarde de Disciplina" },
+      { key: "night", timeKey: "nightTime", cat: "night", title: "🌙 Rendición de Cuentas" },
+    ];
+
+    for (const slot of slots) {
+      if (settings[slot.key]) {
+        const timeVal = settings[slot.timeKey] as string;
+        const [hoursStr, minsStr] = timeVal.split(":");
+        const hour = parseInt(hoursStr, 10);
+        const minute = parseInt(minsStr, 10);
+
+        if (!isNaN(hour) && !isNaN(minute)) {
+          const quote = getRandomQuote(slot.cat);
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `FOCUS · ${slot.title}`,
+              body: `"${quote.phrase}" — ${quote.author}`,
+              sound: "default",
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DAILY,
+              hour,
+              minute,
+            },
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Error scheduling native notifications:", err);
+  }
+}
+
+// Fallback in-app checker for open tabs
 export function checkAndFireScheduledNotifications(): void {
   const settings = loadNotificationSettings();
   if (!settings.enabled) return;
-  if (getNotificationPermission() !== "granted") return;
 
   const now = new Date();
   const currentHours = String(now.getHours()).padStart(2, "0");
@@ -244,17 +365,15 @@ export function checkAndFireScheduledNotifications(): void {
       if (lastFired[fireId]) continue; // Already fired today
 
       const quote = getRandomQuote(slot.cat);
-      const sent = sendBrowserNotification(
+      void sendBrowserNotification(
         `FOCUS · ${slot.title}`,
         `"${quote.phrase}" — ${quote.author}`
       );
 
-      if (sent) {
-        lastFired[fireId] = new Date().toISOString();
-        try {
-          localStorage.setItem(STORAGE_LAST_FIRED_KEY, JSON.stringify(lastFired));
-        } catch {}
-      }
+      lastFired[fireId] = new Date().toISOString();
+      try {
+        localStorage.setItem(STORAGE_LAST_FIRED_KEY, JSON.stringify(lastFired));
+      } catch {}
       break;
     }
   }

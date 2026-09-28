@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'react-native': 'react-native-web',
+      'expo-modules-core': path.resolve(__dirname, './src/lib/expo-modules-core-web.ts'),
     },
   },
   server: {

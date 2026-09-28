@@ -1,0 +1,7 @@
+{
+  "name": "focus-live-activity",
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["FocusLiveActivityModule"]
+  }
+}

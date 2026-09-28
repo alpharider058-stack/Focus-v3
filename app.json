@@ -17,10 +17,17 @@
       "bundleIdentifier": "com.focus.discipline",
       "buildNumber": "1",
       "icon": "./Logo.png",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.focus.discipline"
+        ]
+      },
       "infoPlist": {
         "NSSupportsLiveActivities": true,
         "NSSupportsLiveActivitiesFrequentUpdates": true,
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "UIUserInterfaceStyle": "Dark",
         "CFBundleDisplayName": "Focus"
       }
@@ -34,7 +41,17 @@
           "image": "./Logo.png",
           "imageWidth": 180
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./Logo.png",
+          "color": "#FF5A1F",
+          "sounds": ["default"],
+          "mode": "production"
+        }
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true

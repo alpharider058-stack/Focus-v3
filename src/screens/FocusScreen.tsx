@@ -17,6 +17,11 @@ import { sendBrowserNotification } from "@/lib/notifications";
 import { startPictureInPicture, isPictureInPictureSupported } from "@/lib/pip-island";
 import confetti from "canvas-confetti";
 import { Play, Pause, Check, X, Award, Flame, Maximize2, Smartphone } from "lucide-react";
+import {
+  startNativeLiveActivity,
+  updateNativeLiveActivity,
+  endNativeLiveActivity,
+} from "../../modules/focus-live-activity";
 
 const PRESETS = [
   { minutes: 15, label: "Sprint" },
@@ -46,6 +51,7 @@ export default function FocusScreen({
   const [reward, setReward] = useState<number | null>(null);
   const [pipActive, setPipActive] = useState(false);
   const hasNotifiedCompletionRef = useRef(false);
+  const activityIdRef = useRef<string | null>(null);
 
   // Restore running or paused session
   useEffect(() => {
@@ -105,31 +111,45 @@ export default function FocusScreen({
 
   const start = async () => {
     sound.playClick();
+    const startTime = Date.now();
     const next: ActiveFocus = {
       id: makeId("active"),
       intent: intent.trim(),
       durationMin: duration,
-      startedAt: Date.now(),
+      startedAt: startTime,
       elapsedBefore: 0,
       paused: false,
     };
     setReward(null);
-    setNow(Date.now());
+    setNow(startTime);
     setActive(next);
     hasNotifiedCompletionRef.current = false;
     await saveActiveFocus(next);
+
+    // Trigger native iOS Dynamic Island Live Activity
+    const endTime = startTime + duration * 60 * 1000;
+    const actId = await startNativeLiveActivity(next.intent || "Enfoque Profundo", duration, endTime);
+    if (actId) {
+      activityIdRef.current = actId;
+    }
   };
 
   const togglePause = async () => {
     if (!active) return;
     sound.playClick();
     const time = Date.now();
+    const isNowPaused = !active.paused;
     const next: ActiveFocus = active.paused
       ? { ...active, paused: false, startedAt: time }
       : { ...active, paused: true, elapsedBefore: focusElapsedSeconds(active, time) };
     setNow(time);
     setActive(next);
     await saveActiveFocus(next);
+
+    if (activityIdRef.current) {
+      const rem = Math.max(0, Math.ceil(totalSeconds - elapsed));
+      void updateNativeLiveActivity(activityIdRef.current, isNowPaused, rem);
+    }
   };
 
   const finish = async () => {
@@ -138,6 +158,12 @@ export default function FocusScreen({
     sound.playComplete();
     confetti({ particleCount: 90, spread: 80, origin: { y: 0.55 } });
     const xp = await completeFocus(active.intent, minutes);
+
+    if (activityIdRef.current) {
+      void endNativeLiveActivity(activityIdRef.current);
+      activityIdRef.current = null;
+    }
+
     setActive(null);
     setIntent("");
     setReward(xp);
@@ -146,6 +172,10 @@ export default function FocusScreen({
 
   const cancel = async () => {
     sound.playClick();
+    if (activityIdRef.current) {
+      void endNativeLiveActivity(activityIdRef.current);
+      activityIdRef.current = null;
+    }
     await saveActiveFocus(null);
     setActive(null);
     await refresh();
